@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yaoundé Climate & Solar Analytics | NASA POWER</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        lightBg: '#f8fafc',
+                        cardBg: '#ffffff',
+                        goldPrimary: '#b8860b',
+                        goldSecondary: '#d4af37',
+                        accentBlue: '#0284c7',
+                        accentRed: '#dc2626',
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- FontAwesome pour les icônes -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+        }
+    </style>
+</head>
+<body class="bg-lightBg text-slate-800 min-h-screen font-sans selection:bg-goldSecondary selection:text-white">
+
+    <!-- Header -->
+    <header class="border-b border-slate-200 bg-white/80 backdrop-blur-md sticky top-0 z-50 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-goldPrimary to-goldSecondary flex items-center justify-center shadow-md shadow-goldPrimary/20 text-white">
+                    <i class="fa-solid fa-earth-africa text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-extrabold tracking-tight text-slate-900">Yaoundé Climate Watch</h1>
+                    <p class="text-xs font-medium text-goldPrimary">Observatoire Satellitaire NASA POWER</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-4 text-sm">
+                <span class="px-3.5 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-800 font-medium flex items-center gap-2 shadow-sm">
+                    <span class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
+                    <span id="last-sync">Chargement...</span>
+                </span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 py-8 space-y-8 animate-fade-in">
+
+        <!-- Introduction & Barre de Filtres Échelle & Temps -->
+        <section class="glass-card rounded-2xl p-6 md:p-8 shadow-xl relative overflow-hidden">
+            <div class="absolute -right-10 -bottom-10 w-64 h-64 bg-goldSecondary/10 rounded-full blur-3xl pointer-events-none"></div>
+            <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+                <div class="max-w-xl">
+                    <span class="px-3 py-1 rounded-full bg-blue-50 text-accentBlue text-xs font-bold tracking-wide uppercase border border-blue-100">
+                        Mode Open Data Actif
+                    </span>
+                    <h2 class="text-2xl md:text-3xl font-black text-slate-900 mt-3">Échelle d'Analyse (Quotidien / Horaire)</h2>
+                    <p id="mode-desc" class="text-slate-600 text-sm mt-2 leading-relaxed">
+                        Visualisation de l'historique complet (Quotidien) ou zoom sur les 7 derniers jours (Horaire).
+                    </p>
+                </div>
+
+                <!-- Sélecteurs d'Échelle (Daily / Hourly + Filtres) -->
+                <div class="flex flex-wrap items-center gap-2 bg-slate-100/90 p-1.5 rounded-xl border border-slate-200 shadow-inner">
+                    <button onclick="setMode('HOURLY')" id="btn-HOURLY" class="px-3.5 py-2 text-xs font-bold rounded-lg text-slate-600 hover:text-slate-900 transition">⚡ Horaire (7j)</button>
+                    <div class="h-5 w-px bg-slate-300 mx-1"></div>
+                    <button onclick="setFilter('1Y')" id="btn-1Y" class="px-3 py-2 text-xs font-bold rounded-lg text-slate-600 hover:text-slate-900 transition">1 An</button>
+                    <button onclick="setFilter('5Y')" id="btn-5Y" class="px-3 py-2 text-xs font-bold rounded-lg text-slate-600 hover:text-slate-900 transition">5 Ans</button>
+                    <button onclick="setFilter('ALL')" id="btn-ALL" class="px-3 py-2 text-xs font-bold rounded-lg bg-slate-900 text-white transition shadow">📅 Tout (2010+)</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- KPIs Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div class="glass-card rounded-2xl p-5 shadow-lg relative border-l-4 border-l-goldPrimary">
+                <p class="text-xs uppercase tracking-wider text-slate-500 font-bold">Ensoleillement Moyen</p>
+                <h3 id="kpi-solar" class="text-2xl font-black text-slate-900 mt-2">-- kWh/m²</h3>
+                <p id="kpi-solar-sub" class="text-xs text-slate-500 mt-3">Irradiance globale</p>
+            </div>
+
+            <div class="glass-card rounded-2xl p-5 shadow-lg relative border-l-4 border-l-accentRed">
+                <p class="text-xs uppercase tracking-wider text-slate-500 font-bold">Température Moyenne</p>
+                <h3 id="kpi-temp" class="text-2xl font-black text-slate-900 mt-2">-- °C</h3>
+                <p class="text-xs text-slate-500 mt-3">Moyenne à 2m du sol</p>
+            </div>
+
+            <div class="glass-card rounded-2xl p-5 shadow-lg relative border-l-4 border-l-accentBlue">
+                <p class="text-xs uppercase tracking-wider text-slate-500 font-bold">Pic Max Enregistré</p>
+                <h3 id="kpi-max-solar" class="text-2xl font-black text-slate-900 mt-2">-- kWh/m²</h3>
+                <p class="text-xs text-slate-500 mt-3">Maximum sur la période</p>
+            </div>
+
+            <div class="glass-card rounded-2xl p-5 shadow-lg relative border-l-4 border-l-purple-500">
+                <p class="text-xs uppercase tracking-wider text-slate-500 font-bold">Amplitude Thermique</p>
+                <h3 id="kpi-temp-range" class="text-xl font-black text-slate-900 mt-2">-- / -- °C</h3>
+                <p class="text-xs text-slate-500 mt-3">Min / Max absolus</p>
+            </div>
+        </div>
+
+        <!-- Section Graphiques -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="glass-card rounded-2xl p-6 shadow-lg lg:col-span-1 flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center gap-2 text-accentRed font-bold text-sm mb-3">
+                        <i class="fa-solid fa-chart-line"></i> Analyse Dynamique
+                    </div>
+                    <h3 class="text-lg font-extrabold text-slate-900">Lecture des Tendances</h3>
+                    <p id="climate-insight" class="text-slate-600 text-sm mt-3 leading-relaxed">
+                        Sélectionnez une échelle...
+                    </p>
+                </div>
+                <div class="mt-6 pt-4 border-t border-slate-100 text-xs text-slate-500 font-medium flex justify-between">
+                    <span>NASA POWER API</span>
+                    <span id="scale-badge" class="text-goldPrimary font-bold">Quotidien (ALL)</span>
+                </div>
+            </div>
+
+            <div class="glass-card rounded-2xl p-6 shadow-lg lg:col-span-2">
+                <h3 class="font-extrabold text-base text-slate-900 mb-4">
+                    <i class="fa-solid fa-solar-panel text-goldPrimary"></i> Rayonnement Solaire (<span id="unit-solar">kWh/m²/jour</span>)
+                </h3>
+                <div class="relative h-64">
+                    <canvas id="solarChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass-card rounded-2xl p-6 shadow-lg">
+            <h3 class="font-extrabold text-base text-slate-900 mb-4">
+                <i class="fa-solid fa-temperature-arrow-up text-accentRed"></i> Évolution des Températures (°C)
+            </h3>
+            <div class="relative h-72">
+                <canvas id="tempChart"></canvas>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-200 mt-16 py-6 text-center text-xs text-slate-500 bg-white">
+        <p>Yaoundé Climate Watch • Pipeline Data Python & NASA POWER</p>
+    </footer>
+
+    <!-- JavaScript Logique Multi-Échelle -->
+    <script>
+        let globalData = null;
+        let currentMode = 'DAILY'; // 'DAILY' ou 'HOURLY'
+        let currentFilter = 'ALL';  // '1Y', '5Y', 'ALL'
+        let solarChartInstance = null;
+        let tempChartInstance = null;
+
+        async function loadWeatherData() {
+            try {
+                const response = await fetch('./public/weather_data.json').catch(() => fetch('./weather_data.json'));
+                if (!response.ok) throw new Error("Fichier introuvable");
+
+                globalData = await response.json();
+                document.getElementById('last-sync').innerText = `Synchro : ${globalData.last_update}`;
+                
+                applyFilterAndRender();
+            } catch (error) {
+                console.error("Erreur :", error);
+                document.getElementById('last-sync').innerText = "Exécute le script Python !";
+            }
+        }
+
+        function setMode(mode) {
+            currentMode = mode;
+            if (mode === 'HOURLY') {
+                document.getElementById('scale-badge').innerText = "Horaire (7 derniers jours)";
+                document.getElementById('mode-desc').innerText = "Zoom horaire sur les 7 derniers jours pour observer les pics de la journée.";
+                // Désactiver visuellement les filtres Daily
+                ['1Y', '5Y', 'ALL'].forEach(p => {
+                    document.getElementById(`btn-${p}`).className = "px-3 py-2 text-xs font-bold rounded-lg text-slate-400 hover:text-slate-600 transition";
+                });
+                document.getElementById('btn-HOURLY').className = "px-3.5 py-2 text-xs font-bold rounded-lg bg-goldPrimary text-white transition shadow";
+            } else {
+                setFilter(currentFilter);
+            }
+            applyFilterAndRender();
+        }
+
+        function setFilter(period) {
+            currentMode = 'DAILY';
+            currentFilter = period;
+            
+            document.getElementById('scale-badge').innerText = `Quotidien (${period})`;
+            document.getElementById('mode-desc').innerText = "Visualisation de l'historique complet (Quotidien).";
+
+            document.getElementById('btn-HOURLY').className = "px-3.5 py-2 text-xs font-bold rounded-lg text-slate-600 hover:text-slate-900 transition";
+            ['1Y', '5Y', 'ALL'].forEach(p => {
+                const btn = document.getElementById(`btn-${p}`);
+                if (p === period) {
+                    btn.className = "px-3 py-2 text-xs font-bold rounded-lg bg-slate-900 text-white transition shadow";
+                } else {
+                    btn.className = "px-3 py-2 text-xs font-bold rounded-lg text-slate-600 hover:text-slate-900 transition";
+                }
+            });
+
+            applyFilterAndRender();
+        }
+
+        function applyFilterAndRender() {
+            if (!globalData) return;
+
+            let timeseries = [];
+            let dateKey = 'Date';
+
+            if (currentMode === 'HOURLY') {
+                timeseries = globalData.hourly_timeseries || [];
+                dateKey = 'Datetime';
+            } else {
+                timeseries = globalData.daily_timeseries || [];
+                if (currentFilter !== 'ALL') {
+                    const now = new Date();
+                    const yearsBack = currentFilter === '1Y' ? 1 : 5;
+                    const cutoffDate = new Date();
+                    cutoffDate.setFullYear(now.getFullYear() - yearsBack);
+                    timeseries = timeseries.filter(row => new Date(row.Date) >= cutoffDate);
+                }
+            }
+
+            const solarVals = timeseries.map(x => x.ALLSKY_SFC_SW_DWN).filter(x => x >= 0);
+            const tempVals = timeseries.map(x => x.T2M).filter(x => x > -50);
+
+            const avgSolar = solarVals.length ? (solarVals.reduce((a, b) => a + b, 0) / solarVals.length).toFixed(2) : "0.00";
+            const maxSolar = solarVals.length ? Math.max(...solarVals).toFixed(2) : "0.00";
+            const avgTemp = tempVals.length ? (tempVals.reduce((a, b) => a + b, 0) / tempVals.length).toFixed(1) : "0.0";
+            const maxTemp = tempVals.length ? Math.max(...tempVals).toFixed(1) : "0.0";
+            const minTemp = tempVals.length ? Math.min(...tempVals).toFixed(1) : "0.0";
+
+            document.getElementById('kpi-solar').innerText = `${avgSolar} kWh/m²`;
+            document.getElementById('kpi-temp').innerText = `${avgTemp} °C`;
+            document.getElementById('kpi-max-solar').innerText = `${maxSolar} kWh/m²`;
+            document.getElementById('kpi-temp-range').innerText = `${minTemp} / ${maxTemp} °C`;
+
+            document.getElementById('climate-insight').innerHTML = `
+                Mode <strong>${currentMode === 'HOURLY' ? 'Horaire (7j)' : 'Quotidien (' + currentFilter + ')'}</strong> : Moyenne d'ensoleillement de <strong>${avgSolar}</strong> avec des températures oscillant entre ${minTemp}°C et ${maxTemp}°C.
+            `;
+
+            const labels = timeseries.map(row => row[dateKey]);
+            const solarValues = timeseries.map(row => row.ALLSKY_SFC_SW_DWN);
+            const tempValues = timeseries.map(row => row.T2M);
+
+            renderCharts(labels, solarValues, tempValues);
+        }
+
+        function renderCharts(labels, solarData, tempData) {
+            if (solarChartInstance) solarChartInstance.destroy();
+            if (tempChartInstance) tempChartInstance.destroy();
+
+            const commonOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: {
+                        grid: { color: 'rgba(0, 0, 0, 0.04)' },
+                        ticks: { color: '#64748b', maxTicksLimit: 10, font: { size: 11 } }
+                    },
+                    y: {
+                        grid: { color: 'rgba(0, 0, 0, 0.04)' },
+                        ticks: { color: '#64748b', font: { size: 11 } }
+                    }
+                }
+            };
+
+            const ctxSolar = document.getElementById('solarChart').getContext('2d');
+            solarChartInstance = new Chart(ctxSolar, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: solarData,
+                        borderColor: '#d4af37',
+                        backgroundColor: 'rgba(212, 175, 55, 0.08)',
+                        borderWidth: 1.5,
+                        fill: true,
+                        tension: 0.2,
+                        pointRadius: 0
+                    }]
+                },
+                options: commonOptions
+            });
+
+            const ctxTemp = document.getElementById('tempChart').getContext('2d');
+            tempChartInstance = new Chart(ctxTemp, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: tempData,
+                        borderColor: '#dc2626',
+                        backgroundColor: 'rgba(220, 38, 38, 0.06)',
+                        borderWidth: 1.5,
+                        fill: true,
+                        tension: 0.2,
+                        pointRadius: 0
+                    }]
+                },
+                options: commonOptions
+            });
+        }
+
+        document.addEventListener("DOMContentLoaded", loadWeatherData);
+    </script>
+</body>
+</html>
