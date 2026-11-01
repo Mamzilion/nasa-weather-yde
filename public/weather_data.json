@@ -1,5 +1,5 @@
 {
-  "last_update": "2026-10-31 22:53:42 UTC",
+  "last_update": "2026-11-01 02:51:02 UTC",
   "location": "Yaoundé, Cameroun",
   "coordinates": {
     "lat": 3.848,
@@ -42999,6 +42999,20 @@
       "T2M": 25.18,
       "T2M_MAX": 29.49,
       "T2M_MIN": 22.31
+    },
+    {
+      "Date": "2026-10-26",
+      "ALLSKY_SFC_SW_DWN": 5.2222,
+      "T2M": 25.02,
+      "T2M_MAX": 29.43,
+      "T2M_MIN": 21.99
+    },
+    {
+      "Date": "2026-10-27",
+      "ALLSKY_SFC_SW_DWN": 3.7783,
+      "T2M": 24.47,
+      "T2M_MAX": 28.11,
+      "T2M_MIN": 22.41
     }
   ],
   "hourly_timeseries": []
